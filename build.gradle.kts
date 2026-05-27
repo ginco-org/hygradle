@@ -27,14 +27,14 @@ gradlePlugin {
             implementationClass = "gg.ginco.hygradle.HytalePlugin"
             displayName = "Hygradle"
             description = "Gradle plugin for Hytale plugin development"
-            tags = listOf("hytale", "plugin", "game")
+            tags = listOf("hytale", "game")
         }
         create("hytaleSettings") {
             id = "gg.ginco.hygradle.settings"
             implementationClass = "gg.ginco.hygradle.settings.HygradleSettingsPlugin"
             displayName = "Hygradle Settings"
             description = "Applies the foojay toolchain resolver for Hygradle projects"
-            tags = listOf("hytale", "plugin", "toolchain")
+            tags = listOf("hytale", "toolchain")
         }
     }
 }
