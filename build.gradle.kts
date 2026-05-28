@@ -18,8 +18,8 @@ kotlin {
 }
 
 gradlePlugin {
-    website = "https://github.com/ginco/hygradle"
-    vcsUrl = "https://github.com/ginco/hygradle.git"
+    website = "https://github.com/ginco-org/hygradle"
+    vcsUrl = "https://github.com/ginco-org/hygradle.git"
 
     plugins {
         create("hytale") {
