@@ -46,6 +46,7 @@ abstract class RunServerTask @Inject constructor(
 
         execOps.exec {
             workingDir = runDir
+            standardInput = System.`in`
             commandLine(buildList {
                 add(Jvm.current().javaExecutable.absolutePath)
                 addAll(jvmArgs.get())
