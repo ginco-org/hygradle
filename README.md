@@ -13,14 +13,14 @@ pluginManagement {
 }
 
 plugins {
-    id("gg.ginco.hygradle.settings") version "0.1.0"
+    id("gg.ginco.hygradle.settings") version "0.2.0"
 }
 ```
 
 **`build.gradle.kts`**
 ```kotlin
 plugins {
-    id("gg.ginco.hygradle") version "0.1.0"
+    id("gg.ginco.hygradle") version "0.2.0"
     kotlin("jvm") version "2.3.21"  // optional
 }
 ```
