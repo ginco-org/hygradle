@@ -36,5 +36,12 @@ gradlePlugin {
             description = "Applies the foojay toolchain resolver for Hygradle projects"
             tags = listOf("hytale", "toolchain")
         }
+        create("hytaleWorkspace") {
+            id = "gg.ginco.hygradle.workspace"
+            implementationClass = "gg.ginco.hygradle.HytaleWorkspacePlugin"
+            displayName = "Hygradle Workspace"
+            description = "Multi-project workspace support for Hytale mod monorepos"
+            tags = listOf("hytale", "workspace", "monorepo")
+        }
     }
 }

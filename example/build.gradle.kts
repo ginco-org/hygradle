@@ -1,3 +1,4 @@
+// Single-project example. For monorepo/workspace setup, see README.md § Monorepo / Workspace.
 plugins {
     id("gg.ginco.hygradle")
     kotlin("jvm") version "2.3.21"
@@ -17,4 +18,19 @@ hytale {
     bundleDependencies = true
 
     mainClass = "com.example.myplugin.Plugin"
+
+    server {
+        serverDir.set(file("run"))
+        jvmArgs.set(listOf("-Xmx4G", "-Xms1G"))
+
+        // Uncomment to attach a debugger (connect IntelliJ to localhost:5005)
+        // debugEnabled = true
+        // debugPort = 5005
+        // debugSuspend = false  // set to true to wait for debugger before starting
+
+        // Uncomment for full HotSwap support with JetBrains Runtime
+        // requireDcevm = true
+        // useHotswapAgent = true  // auto-downloads hotswap-agent.jar on first use
+        // jbrHome = "/path/to/jbr"
+    }
 }

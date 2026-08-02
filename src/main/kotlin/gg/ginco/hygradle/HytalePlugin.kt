@@ -97,6 +97,14 @@ class HytalePlugin : Plugin<Project> {
             serverVersion.set(ext.serverVersion)
             serverDir.set(ext.server.serverDir)
             jvmArgs.set(ext.server.jvmArgs)
+            debugEnabled.set(ext.server.debugEnabled)
+            debugPort.set(ext.server.debugPort)
+            debugSuspend.set(ext.server.debugSuspend)
+            requireDcevm.set(ext.server.requireDcevm)
+            useHotswapAgent.set(ext.server.useHotswapAgent)
+            hotswapAgentPath.set(ext.server.hotswapAgentPath)
+            jbrHome.set(ext.server.jbrHome)
+            gradleUserHomeDir.set(project.layout.dir(project.provider { project.gradle.gradleUserHomeDir }))
 
             dependsOn("jar")
         }
