@@ -23,6 +23,7 @@ class HytaleWorkspacePlugin : Plugin<Project> {
             serverVersion.set(ext.serverVersion)
             serverDir.set(ext.serverDir)
             jvmArgs.set(ext.jvmArgs)
+            gradleUserHomeDir.set(project.layout.dir(project.provider { project.gradle.gradleUserHomeDir }))
         }
 
         // Collect subprojects as they get the hygradle plugin applied

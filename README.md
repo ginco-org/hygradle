@@ -13,14 +13,14 @@ pluginManagement {
 }
 
 plugins {
-    id("gg.ginco.hygradle.settings") version "0.3.0"
+    id("gg.ginco.hygradle.settings") version "0.3.1"
 }
 ```
 
 **`build.gradle.kts`**
 ```kotlin
 plugins {
-    id("gg.ginco.hygradle") version "0.3.0"
+    id("gg.ginco.hygradle") version "0.3.1"
     kotlin("jvm") version "2.3.21"  // optional
 }
 ```
@@ -58,7 +58,7 @@ hytale {
 ./gradlew runServer
 ```
 
-On first run, the server files (`HytaleServer.jar`, `HytaleServer.aot.config`, `Assets.zip`) are downloaded to the `run/` directory. Subsequent runs skip the download if the files are already present for the requested version.
+On first run, the server files (`HytaleServer.jar`, `HytaleServer.aot.config`, `Assets.zip`) are downloaded to `~/.gradle/caches/hygradle/server/<version>/`. The `run/` directory is used only as the server's working directory (mods, logs, config). Subsequent runs skip the download if the files are already cached for the requested version.
 
 If your server version requires authentication, the task will guide you through a one-time device code login. Credentials are cached locally.
 
@@ -182,7 +182,7 @@ pluginManagement {
 }
 
 plugins {
-    id("gg.ginco.hygradle.settings") version "0.3.0"
+    id("gg.ginco.hygradle.settings") version "0.3.1"
 }
 
 rootProject.name = "my-workspace"
@@ -192,7 +192,7 @@ include(":mod-alpha", ":mod-beta")
 **`build.gradle.kts`** (root)
 ```kotlin
 plugins {
-    id("gg.ginco.hygradle.workspace") version "0.3.0"
+    id("gg.ginco.hygradle.workspace") version "0.3.1"
 }
 
 hytaleWorkspace {

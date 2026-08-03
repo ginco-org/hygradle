@@ -43,18 +43,18 @@ abstract class RunServerTask @Inject constructor(
     @TaskAction
     fun run() {
         val runDir = serverDir.get().asFile
+        val cacheDir = File(gradleUserHomeDir.get().asFile, "caches/hygradle/server")
 
-        ServerDownloader.ensureServerFiles(serverVersion.get(), runDir, logger)
+        val versionCache = ServerDownloader.ensureServerFiles(serverVersion.get(), runDir, cacheDir, logger)
 
         val modsDir = File(runDir, "mods").also { it.mkdirs() }
         val jar = pluginJar.get().asFile
         jar.copyTo(File(modsDir, jar.name), overwrite = true)
         logger.lifecycle("Deployed ${jar.name} to ${modsDir.absolutePath}")
 
-        val serverJar = File(runDir, "HytaleServer.jar")
-        val assets = File(runDir, "Assets.zip")
+        val serverJar = File(versionCache, "HytaleServer.jar")
+        val assets = File(versionCache, "Assets.zip")
         logger.lifecycle("Starting Hytale server ${serverVersion.get()} in ${runDir.absolutePath}")
-
         val binName = if (System.getProperty("os.name").lowercase().contains("win")) "java.exe" else "java"
         val javaExec = if (jbrHome.isPresent) {
             File(File(jbrHome.get(), "bin"), binName).absolutePath.also { path ->

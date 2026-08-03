@@ -29,14 +29,16 @@ abstract class RunAllModsTask @Inject constructor(
     @get:Input
     abstract val jvmArgs: ListProperty<String>
 
+    @get:Internal
+    abstract val gradleUserHomeDir: DirectoryProperty
     @TaskAction
     fun run() {
         check(pluginJars.files.isNotEmpty()) {
             "runAllMods: no mod jars configured. Ensure subprojects apply gg.ginco.hygradle and are not all set as hostProject."
         }
-
         val runDir = serverDir.get().asFile
-        ServerDownloader.ensureServerFiles(serverVersion.get(), runDir, logger)
+        val cacheDir = File(gradleUserHomeDir.get().asFile, "caches/hygradle/server")
+        val versionCache = ServerDownloader.ensureServerFiles(serverVersion.get(), runDir, cacheDir, logger)
 
         val modsDir = File(runDir, "mods")
         val modsTmp = File(runDir, "mods.tmp").also {
@@ -61,8 +63,8 @@ abstract class RunAllModsTask @Inject constructor(
         }
         logger.lifecycle("Deployed ${pluginJars.files.size} mod(s) to ${modsDir.absolutePath}")
 
-        val serverJar = File(runDir, "HytaleServer.jar")
-        val assets = File(runDir, "Assets.zip")
+        val serverJar = File(versionCache, "HytaleServer.jar")
+        val assets = File(versionCache, "Assets.zip")
         logger.lifecycle("Starting Hytale server ${serverVersion.get()} with ${pluginJars.files.size} mod(s)")
 
         execOps.exec {

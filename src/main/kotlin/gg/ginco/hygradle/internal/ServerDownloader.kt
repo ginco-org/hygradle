@@ -10,8 +10,9 @@ import java.net.http.HttpResponse
 import java.util.zip.ZipInputStream
 
 /**
- * Downloads Hytale server files (HytaleServer.jar, HytaleServer.aot.config, Assets.zip).
- * Caches by version — skips download if all files for the requested version are present.
+ * Downloads Hytale server files (HytaleServer.jar, HytaleServer.aot.config, Assets.zip)
+ * into a system-wide cache directory. Each project's run directory references the
+ * cached files by path — no duplication.
  */
 object ServerDownloader {
     private const val ASSETS_API = "https://account-data.hytale.com/game-assets"
@@ -24,35 +25,47 @@ object ServerDownloader {
         "Server/HytaleServer.aot.config" to "HytaleServer.aot.config",
         "Assets.zip" to "Assets.zip",
     )
-
     private val httpClient = HttpClient.newBuilder()
         .followRedirects(HttpClient.Redirect.NEVER)
+        .connectTimeout(java.time.Duration.ofSeconds(30))
         .build()
 
     /**
-     * Ensures all server files for [version] are present in [targetDir].
-     * Skips download if a version marker matches and all files exist.
+     * Ensures all server files for [version] are cached in [cacheDir]/<version>/
+     * and a version marker is written in [targetDir].
      * Tries the authenticated R2 full-build first, falls back to Maven JAR-only.
+     * Returns the version cache directory so callers can reference files by path.
      */
-    fun ensureServerFiles(version: String, targetDir: File, logger: Logger) {
+    fun ensureServerFiles(version: String, targetDir: File, cacheDir: File, logger: Logger): File {
         val marker = File(targetDir, ".hygradle-version")
+        val versionCacheDir = File(cacheDir, version)
         if (marker.isFile && marker.readText().trim() == version
-            && SERVER_FILES.all { File(targetDir, it).isFile }) {
+            && SERVER_FILES.all { File(versionCacheDir, it).isFile }) {
             logger.lifecycle("Server files for $version already present, skipping download")
-            return
+            return versionCacheDir
+        }
+
+        // Download into cache if not already there
+        if (!File(versionCacheDir, ".hygradle-version").isFile
+            || File(versionCacheDir, ".hygradle-version").readText().trim() != version
+            || !SERVER_FILES.all { File(versionCacheDir, it).isFile }) {
+
+            versionCacheDir.mkdirs()
+
+            try {
+                fullBuild(version, versionCacheDir, logger)
+            } catch (e: Exception) {
+                logger.lifecycle("Full build download failed: ${e.message}")
+                logger.lifecycle("Falling back to JAR-only download from Maven")
+                jarOnly(version, versionCacheDir, logger)
+            }
+
+            File(versionCacheDir, ".hygradle-version").writeText(version)
         }
 
         targetDir.mkdirs()
-
-        try {
-            fullBuild(version, targetDir, logger)
-        } catch (e: Exception) {
-            logger.lifecycle("Full build download failed: ${e.message}")
-            logger.lifecycle("Falling back to JAR-only download from Maven")
-            jarOnly(version, targetDir, logger)
-        }
-
         marker.writeText(version)
+        return versionCacheDir
     }
 
     // ---- Full build (authenticated R2) -----------------------------------------
