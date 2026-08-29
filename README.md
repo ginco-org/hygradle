@@ -62,6 +62,8 @@ On first run, the server files (`HytaleServer.jar`, `HytaleServer.aot.config`, `
 
 If your server version requires authentication, the task will guide you through a one-time device code login. Credentials are cached locally.
 
+By default, the server also starts fully authenticated: hygradle exchanges a one-time `auth:server` login (client `hytale-server`, cached separately from the download token) for a **game session** and passes `--session-token` / `--identity-token` to the server process — no interactive `/auth` in the server console. Set `server { sessionAuth = false }` to disable this and authenticate manually instead.
+
 Server options:
 
 ```kotlin
@@ -71,6 +73,7 @@ hytale {
     server {
         serverDir.set(file("run"))              // working directory for the server
         jvmArgs.set(listOf("-Xmx4G", "-Xms1G")) // JVM arguments
+        sessionAuth = true                      // launch with --session-token/--identity-token (default)
     }
 }
 ```
@@ -133,6 +136,7 @@ server {
 | `debugEnabled` | `Boolean` | `false` | Enables the JDWP debug agent |
 | `debugPort` | `Int` | `5005` | Port the debug agent listens on (`127.0.0.1` only) |
 | `debugSuspend` | `Boolean` | `false` | If `true`, JVM waits for a debugger to attach before starting |
+| `sessionAuth` | `Boolean` | `true` | Creates a game session from the `auth:server` token and passes `--session-token`/`--identity-token` so no in-server `/auth` is needed. Fail-soft: on failure the server starts unauthenticated |
 | `requireDcevm` | `Boolean` | `false` | Validates that the JVM supports `-XX:+AllowEnhancedClassRedefinition` before launch |
 | `useHotswapAgent` | `Boolean` | `false` | Injects HotSwap Agent (`hotswap-agent-1.4.2.jar`) as `-javaagent`; auto-downloaded on first use |
 | `hotswapAgentPath` | `RegularFileProperty` | — | Explicit path to a `hotswap-agent.jar`; overrides auto-download |

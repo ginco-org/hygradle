@@ -16,6 +16,7 @@ class HytaleWorkspacePlugin : Plugin<Project> {
         ext.modProjects.convention(emptyList())
         ext.serverDir.convention(project.layout.projectDirectory.dir("run"))
         ext.jvmArgs.convention(listOf("-Xmx4G", "-Xms1G"))
+        ext.sessionAuth.convention(true)
 
         val runAllMods = project.tasks.register<RunAllModsTask>("runAllMods") {
             group = "hytale"
@@ -23,6 +24,7 @@ class HytaleWorkspacePlugin : Plugin<Project> {
             serverVersion.set(ext.serverVersion)
             serverDir.set(ext.serverDir)
             jvmArgs.set(ext.jvmArgs)
+            sessionAuth.set(ext.sessionAuth)
             gradleUserHomeDir.set(project.layout.dir(project.provider { project.gradle.gradleUserHomeDir }))
         }
 

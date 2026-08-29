@@ -10,4 +10,5 @@ abstract class HytaleWorkspaceExtension {
     abstract val hostProject: Property<String>
     abstract val serverDir: DirectoryProperty
     abstract val jvmArgs: ListProperty<String>
+    abstract val sessionAuth: Property<Boolean>
 }

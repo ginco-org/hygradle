@@ -16,12 +16,21 @@ import kotlin.io.path.writeText
 
 /**
  * OAuth2 device-code authentication against the Hytale account service.
- * Tokens are cached locally and refreshed automatically.
+ * Each OAuth client (downloader, server) has its own scope and a separate
+ * token cache file. Tokens are cached locally and refreshed automatically;
+ * if the refresh token is rejected, the device flow is re-run.
  */
 object HytaleAuth {
     private const val OAUTH_BASE = "https://oauth.accounts.hytale.com/oauth2"
-    private const val CLIENT_ID = "hytale-downloader"
-    private const val SCOPE = "offline auth:downloader"
+
+    /** One OAuth client: id, scope, and the file its tokens are cached under. */
+    data class OAuthClient(val clientId: String, val scope: String, val cacheFileName: String)
+
+    /** Downloads full builds (incl. Assets.zip) from the authenticated R2 bucket. */
+    val DOWNLOADER = OAuthClient("hytale-downloader", "offline auth:downloader", "token.json")
+
+    /** Dedicated-server auth (`auth:server` scope) used to create game sessions. */
+    val SERVER = OAuthClient("hytale-server", "openid offline auth:server", "token-server.json")
 
     private val httpClient = HttpClient.newBuilder().build()
 
@@ -31,7 +40,7 @@ object HytaleAuth {
         val expiresAtEpochMs: Long,
     )
 
-    private fun tokenPath(): Path {
+    private fun tokenPath(client: OAuthClient): Path {
         val os = System.getProperty("os.name").lowercase()
         val base: Path = when {
             os.contains("win") -> Path.of(System.getenv("APPDATA")
@@ -41,11 +50,11 @@ object HytaleAuth {
             else -> Path.of(System.getenv("XDG_DATA_HOME")
                 ?: "${System.getProperty("user.home")}/.local/share")
         }
-        return base.resolve("hygradle").resolve("token.json")
+        return base.resolve("hygradle").resolve(client.cacheFileName)
     }
 
-    private fun loadCache(): TokenCache? {
-        val path = tokenPath()
+    private fun loadCache(client: OAuthClient): TokenCache? {
+        val path = tokenPath(client)
         if (!Files.exists(path)) return null
         return try {
             val json = JsonParser.parseString(path.readText()).asJsonObject
@@ -57,8 +66,8 @@ object HytaleAuth {
         } catch (_: Exception) { null }
     }
 
-    private fun saveCache(cache: TokenCache) {
-        val path = tokenPath()
+    private fun saveCache(client: OAuthClient, cache: TokenCache) {
+        val path = tokenPath(client)
         Files.createDirectories(path.parent)
         val json = JsonObject().apply {
             addProperty("access_token", cache.accessToken)
@@ -68,8 +77,8 @@ object HytaleAuth {
         path.writeText(GsonBuilder().setPrettyPrinting().create().toJson(json))
     }
 
-    private fun refreshToken(refreshToken: String): TokenCache {
-        val body = "client_id=$CLIENT_ID&grant_type=refresh_token&refresh_token=$refreshToken"
+    private fun refreshToken(client: OAuthClient, refreshToken: String): TokenCache {
+        val body = "client_id=${client.clientId}&grant_type=refresh_token&refresh_token=$refreshToken"
         val request = HttpRequest.newBuilder()
             .uri(URI.create("$OAUTH_BASE/token"))
             .header("Content-Type", "application/x-www-form-urlencoded")
@@ -87,12 +96,12 @@ object HytaleAuth {
             expiresAtEpochMs = System.currentTimeMillis() +
                     json.get("expires_in").asLong * 1000,
         )
-        saveCache(cache)
+        saveCache(client, cache)
         return cache
     }
 
-    private fun deviceCodeFlow(logger: Logger): TokenCache {
-        val body = "client_id=$CLIENT_ID&scope=${URLEncoder.encode(SCOPE, "UTF-8")}"
+    private fun deviceCodeFlow(client: OAuthClient, logger: Logger): TokenCache {
+        val body = "client_id=${client.clientId}&scope=${URLEncoder.encode(client.scope, "UTF-8")}"
         val request = HttpRequest.newBuilder()
             .uri(URI.create("$OAUTH_BASE/device/auth"))
             .header("Content-Type", "application/x-www-form-urlencoded")
@@ -109,7 +118,7 @@ object HytaleAuth {
         val interval = json.get("interval")?.asLong ?: 5L
 
         logger.lifecycle("")
-        logger.lifecycle("To authenticate, visit: $verificationUri")
+        logger.lifecycle("To authenticate the ${client.clientId} client, visit: $verificationUri")
         logger.lifecycle("Enter code: $userCode")
         logger.lifecycle("")
 
@@ -117,7 +126,7 @@ object HytaleAuth {
             Thread.sleep(interval * 1000)
 
             val pollBody = "grant_type=urn:ietf:params:oauth:grant-type:device_code" +
-                    "&device_code=$deviceCode&client_id=$CLIENT_ID"
+                    "&device_code=$deviceCode&client_id=${client.clientId}"
             val pollRequest = HttpRequest.newBuilder()
                 .uri(URI.create("$OAUTH_BASE/token"))
                 .header("Content-Type", "application/x-www-form-urlencoded")
@@ -133,7 +142,7 @@ object HytaleAuth {
                     expiresAtEpochMs = System.currentTimeMillis() +
                             pollJson.get("expires_in").asLong * 1000,
                 )
-                saveCache(cache)
+                saveCache(client, cache)
                 logger.lifecycle("Authentication successful.")
                 return cache
             }
@@ -146,16 +155,16 @@ object HytaleAuth {
         }
     }
 
-    fun getAccessToken(logger: Logger): String {
-        val cached = loadCache()
+    fun getAccessToken(logger: Logger, client: OAuthClient = DOWNLOADER): String {
+        val cached = loadCache(client)
         if (cached != null) {
             if (cached.expiresAtEpochMs > System.currentTimeMillis() + 60_000) {
                 return cached.accessToken
             }
             try {
-                return refreshToken(cached.refreshToken).accessToken
+                return refreshToken(client, cached.refreshToken).accessToken
             } catch (_: Exception) { /* fall through to device code */ }
         }
-        return deviceCodeFlow(logger).accessToken
+        return deviceCodeFlow(client, logger).accessToken
     }
 }

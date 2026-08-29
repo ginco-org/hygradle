@@ -1,5 +1,7 @@
 package gg.ginco.hygradle.tasks
 
+import gg.ginco.hygradle.internal.GameSession
+import gg.ginco.hygradle.internal.HytaleAuth
 import gg.ginco.hygradle.internal.ServerDownloader
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
@@ -28,6 +30,9 @@ abstract class RunAllModsTask @Inject constructor(
 
     @get:Input
     abstract val jvmArgs: ListProperty<String>
+
+    @get:Input
+    abstract val sessionAuth: Property<Boolean>
 
     @get:Internal
     abstract val gradleUserHomeDir: DirectoryProperty
@@ -79,7 +84,29 @@ abstract class RunAllModsTask @Inject constructor(
                     add("--assets")
                     add(assets.absolutePath)
                 }
+                addSessionAuthArgs()
             })
+        }
+    }
+
+    /**
+     * Exchanges the cached `auth:server` token for a game session and appends
+     * --session-token / --identity-token so the server starts fully
+     * authenticated (no in-server /auth needed). Fail-soft: if session
+     * creation fails, the server still starts and can be authed manually.
+     */
+    private fun MutableList<String>.addSessionAuthArgs() {
+        if (!sessionAuth.getOrElse(true)) return
+        try {
+            val token = HytaleAuth.getAccessToken(logger, HytaleAuth.SERVER)
+            val session = GameSession.create(token, logger)
+            add("--session-token")
+            add(session.sessionToken)
+            add("--identity-token")
+            add(session.identityToken)
+        } catch (e: Exception) {
+            logger.warn("Session auth failed: ${e.message}")
+            logger.warn("Starting server WITHOUT session tokens — run /auth in the server console if it requires authentication.")
         }
     }
 }

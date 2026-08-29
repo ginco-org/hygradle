@@ -19,6 +19,9 @@ abstract class ServerExtension @Inject constructor(project: Project) {
     abstract val debugPort: Property<Int>
     abstract val debugSuspend: Property<Boolean>
 
+    // Session auth
+    abstract val sessionAuth: Property<Boolean>
+
     // HotSwap
     abstract val requireDcevm: Property<Boolean>
     abstract val useHotswapAgent: Property<Boolean>
@@ -31,6 +34,7 @@ abstract class ServerExtension @Inject constructor(project: Project) {
         debugEnabled.convention(false)
         debugPort.convention(5005)
         debugSuspend.convention(false)
+        sessionAuth.convention(true)
         requireDcevm.convention(false)
         useHotswapAgent.convention(false)
     }

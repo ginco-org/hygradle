@@ -100,6 +100,7 @@ class HytalePlugin : Plugin<Project> {
             debugEnabled.set(ext.server.debugEnabled)
             debugPort.set(ext.server.debugPort)
             debugSuspend.set(ext.server.debugSuspend)
+            sessionAuth.set(ext.server.sessionAuth)
             requireDcevm.set(ext.server.requireDcevm)
             useHotswapAgent.set(ext.server.useHotswapAgent)
             hotswapAgentPath.set(ext.server.hotswapAgentPath)

@@ -1,6 +1,8 @@
 package gg.ginco.hygradle.tasks
 
+import gg.ginco.hygradle.internal.GameSession
 import gg.ginco.hygradle.internal.HotswapAgentResolver
+import gg.ginco.hygradle.internal.HytaleAuth
 import gg.ginco.hygradle.internal.ServerDownloader
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -34,6 +36,7 @@ abstract class RunServerTask @Inject constructor(
     @get:Input abstract val debugEnabled: Property<Boolean>
     @get:Input abstract val debugPort: Property<Int>
     @get:Input abstract val debugSuspend: Property<Boolean>
+    @get:Input abstract val sessionAuth: Property<Boolean>
     @get:Input abstract val requireDcevm: Property<Boolean>
     @get:Input abstract val useHotswapAgent: Property<Boolean>
     @get:PathSensitive(PathSensitivity.ABSOLUTE) @get:InputFile @get:Optional abstract val hotswapAgentPath: RegularFileProperty
@@ -99,7 +102,29 @@ abstract class RunServerTask @Inject constructor(
                     add("--assets")
                     add(assets.absolutePath)
                 }
+                addSessionAuthArgs()
             })
+        }
+    }
+
+    /**
+     * Exchanges the cached `auth:server` token for a game session and appends
+     * --session-token / --identity-token so the server starts fully
+     * authenticated (no in-server /auth needed). Fail-soft: if session
+     * creation fails, the server still starts and can be authed manually.
+     */
+    private fun MutableList<String>.addSessionAuthArgs() {
+        if (!sessionAuth.getOrElse(true)) return
+        try {
+            val token = HytaleAuth.getAccessToken(logger, HytaleAuth.SERVER)
+            val session = GameSession.create(token, logger)
+            add("--session-token")
+            add(session.sessionToken)
+            add("--identity-token")
+            add(session.identityToken)
+        } catch (e: Exception) {
+            logger.warn("Session auth failed: ${e.message}")
+            logger.warn("Starting server WITHOUT session tokens — run /auth in the server console if it requires authentication.")
         }
     }
 
