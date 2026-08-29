@@ -13,7 +13,7 @@ hytale {
     website = "example.com"
     author("jane doe", email = "jane.doe@example.com")
 
-    serverVersion = "0.5.1"
+    serverVersion = "0.6.2"
 
     bundleDependencies = true
 

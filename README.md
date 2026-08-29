@@ -31,7 +31,7 @@ plugins {
 hytale {
     group = "MyGroup"                          // required
     mainClass = "com.example.myplugin.Plugin"  // required
-    serverVersion = "0.5.1"                    // required
+    serverVersion = "0.6.2"                    // required
 
     name = "MyPlugin"
     description = "Does cool things"
@@ -196,7 +196,7 @@ plugins {
 }
 
 hytaleWorkspace {
-    serverVersion = "0.5.1"  // propagated to all mod subprojects
+    serverVersion = "0.6.2"  // propagated to all mod subprojects
 }
 ```
 
@@ -231,7 +231,7 @@ By default all subprojects with `gg.ginco.hygradle` applied are included. To res
 
 ```kotlin
 hytaleWorkspace {
-    serverVersion = "0.5.1"
+    serverVersion = "0.6.2"
     modProjects = listOf(":mod-alpha", ":mod-beta")
 }
 ```
