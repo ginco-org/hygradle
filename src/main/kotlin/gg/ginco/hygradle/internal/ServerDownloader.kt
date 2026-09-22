@@ -68,6 +68,13 @@ object ServerDownloader {
         return versionCacheDir
     }
 
+    /**
+     * Cache directory holding the server files for [version] —
+     * `<cacheDir>/<version>/`. Callers that have already run a provisioning
+     * step can reference files by path without re-checking the cache.
+     */
+    fun versionCacheDir(cacheDir: File, version: String): File = File(cacheDir, version)
+
     // ---- Full build (authenticated R2) -----------------------------------------
 
     private fun fullBuild(version: String, targetDir: File, logger: Logger) {

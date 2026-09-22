@@ -1,5 +1,6 @@
 package gg.ginco.hygradle
 
+import gg.ginco.hygradle.tasks.ProvisionServerTask
 import gg.ginco.hygradle.tasks.RunAllModsTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -18,6 +19,14 @@ class HytaleWorkspacePlugin : Plugin<Project> {
         ext.jvmArgs.convention(listOf("-Xmx4G", "-Xms1G"))
         ext.sessionAuth.convention(true)
 
+        val provisionServer = project.tasks.register<ProvisionServerTask>("provisionServer") {
+            group = "hytale"
+            description = "Downloads the Hytale server files into the run directory"
+            serverVersion.set(ext.serverVersion)
+            serverDir.set(ext.serverDir)
+            gradleUserHomeDir.set(project.layout.dir(project.provider { project.gradle.gradleUserHomeDir }))
+        }
+
         val runAllMods = project.tasks.register<RunAllModsTask>("runAllMods") {
             group = "hytale"
             description = "Builds all Hytale mod subprojects and starts a shared dev server"
@@ -26,6 +35,7 @@ class HytaleWorkspacePlugin : Plugin<Project> {
             jvmArgs.set(ext.jvmArgs)
             sessionAuth.set(ext.sessionAuth)
             gradleUserHomeDir.set(project.layout.dir(project.provider { project.gradle.gradleUserHomeDir }))
+            dependsOn(provisionServer)
         }
 
         // Collect subprojects as they get the hygradle plugin applied

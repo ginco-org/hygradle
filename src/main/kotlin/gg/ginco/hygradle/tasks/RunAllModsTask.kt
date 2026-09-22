@@ -43,7 +43,9 @@ abstract class RunAllModsTask @Inject constructor(
         }
         val runDir = serverDir.get().asFile
         val cacheDir = File(gradleUserHomeDir.get().asFile, "caches/hygradle/server")
-        val versionCache = ServerDownloader.ensureServerFiles(serverVersion.get(), runDir, cacheDir, logger)
+        // Server files are provisioned by the provisionServer task (see dependsOn);
+        // this task only references them by path.
+        val versionCache = ServerDownloader.versionCacheDir(cacheDir, serverVersion.get())
 
         val modsDir = File(runDir, "mods")
         val modsTmp = File(runDir, "mods.tmp").also {
