@@ -50,7 +50,24 @@ hytale {
 |------|-------------|
 | `generatePluginManifest` | Generates `manifest.json` from the `hytale { }` block |
 | `jar` | Builds the plugin jar with the manifest included |
-| `runServer` | Downloads server files if missing, deploys your plugin, and starts a dev server |
+| `provisionServer` | Downloads the Hytale server files into the run directory — without starting a server |
+| `runServer` | Deploys your plugin and starts a dev server (depends on `provisionServer`) |
+
+### Provision server files
+
+```bash
+./gradlew provisionServer
+```
+
+Downloads the Hytale server files (`HytaleServer.jar`, `HytaleServer.aot.config`, `Assets.zip`) into the run directory **without starting a server**. It is idempotent: if the files are already present for the requested version, it is a no-op. This is the task other build plugins should depend on to ensure the server files exist — e.g. to prepare a test harness or CI environment:
+
+```kotlin
+tasks.named("myTestTask") {
+    dependsOn("provisionServer")
+}
+```
+
+`runServer` depends on `provisionServer` automatically, so the server files are always in place before launch.
 
 ### Run server
 

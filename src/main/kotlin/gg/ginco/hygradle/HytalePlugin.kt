@@ -1,6 +1,7 @@
 package gg.ginco.hygradle
 
 import gg.ginco.hygradle.tasks.GenerateManifestTask
+import gg.ginco.hygradle.tasks.ProvisionServerTask
 import gg.ginco.hygradle.tasks.RunServerTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -89,6 +90,14 @@ class HytalePlugin : Plugin<Project> {
             }
         }
 
+        val provisionServer = project.tasks.register<ProvisionServerTask>("provisionServer") {
+            group = "hytale"
+            description = "Downloads the Hytale server files into the run directory"
+            serverVersion.set(ext.serverVersion)
+            serverDir.set(ext.server.serverDir)
+            gradleUserHomeDir.set(project.layout.dir(project.provider { project.gradle.gradleUserHomeDir }))
+        }
+
         project.tasks.register<RunServerTask>("runServer") {
             group = "hytale"
             description = "Starts a Hytale dev server with this plugin loaded"
@@ -105,9 +114,7 @@ class HytalePlugin : Plugin<Project> {
             useHotswapAgent.set(ext.server.useHotswapAgent)
             hotswapAgentPath.set(ext.server.hotswapAgentPath)
             jbrHome.set(ext.server.jbrHome)
-            gradleUserHomeDir.set(project.layout.dir(project.provider { project.gradle.gradleUserHomeDir }))
-
-            dependsOn("jar")
+            dependsOn("jar", provisionServer)
         }
     }
 }
