@@ -114,6 +114,9 @@ class HytalePlugin : Plugin<Project> {
             useHotswapAgent.set(ext.server.useHotswapAgent)
             hotswapAgentPath.set(ext.server.hotswapAgentPath)
             jbrHome.set(ext.server.jbrHome)
+            // gradleUserHomeDir must be wired even though provisionServer already got it:
+            // RunServerTask.run() reads it to locate the shared version cache (issue #2)
+            gradleUserHomeDir.set(project.layout.dir(project.provider { project.gradle.gradleUserHomeDir }))
             dependsOn("jar", provisionServer)
         }
     }
