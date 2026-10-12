@@ -226,10 +226,18 @@ hytale {
     subPlugin {
         name = "SubModule"
         mainClass = "com.example.myplugin.SubModule"
+        serverVersion = "0.6.8"   // optional — defaults to the parent hytale { serverVersion }
         author("jane doe")
     }
 }
 ```
+
+Each `subPlugin { }` block emits a `SubPlugins` manifest entry. The server inherits
+`Group`/`Version` from the parent plugin for these entries, but **not** `ServerVersion` —
+without it the server logs `Plugin 'X' does not specify a target server version. ... This
+will be a hard error in the future` for every sub-plugin. Hygradle therefore stamps
+`ServerVersion` on every entry: an explicit `serverVersion` in the block wins, otherwise
+the parent's `hytale { serverVersion }` is used.
 
 ## Monorepo / Workspace
 
