@@ -15,6 +15,18 @@ class SubPluginSpec : java.io.Serializable {
     var mainClass: String? = null
     var description: String? = null
     var website: String? = null
+
+    /**
+     * Target Hytale server version for this entry, e.g. `"0.6.8"` — stamped as `ServerVersion`
+     * on the SubPlugins manifest entry (normalized through the same semver-range rules as
+     * the parent's `hytale { serverVersion }`).
+     *
+     * The server's sub-plugin loader inherits `Group`/`Version` from the parent plugin but
+     * NOT `ServerVersion`; without it every sub-plugin logs "does not specify a target server
+     * version ... This will be a hard error in the future" (issue #5). When left unset, the
+     * parent's `hytale { serverVersion }` is used.
+     */
+    var serverVersion: String? = null
     var disabledByDefault: Boolean = false
     var includesAssetPack: Boolean = false
     val authors: MutableList<AuthorInfo> = mutableListOf()

@@ -73,6 +73,12 @@ abstract class GenerateManifestTask : DefaultTask() {
     private fun subPluginMap(sub: SubPluginSpec): Map<String, Any> = linkedMapOf<String, Any>().apply {
         put("Name", sub.name)
         sub.mainClass?.let { put("Main", it) }
+        // The server's sub-plugin loader inherits Group/Version from the parent plugin but NOT
+        // ServerVersion, and warns ("...This will be a hard error in the future") when it is
+        // absent (issue #5). Explicit per-entry value wins; otherwise stamp the parent's
+        // serverVersion so existing sub-plugin setups stop warning without config changes.
+        (sub.serverVersion?.takeIf { it.isNotBlank() } ?: serverVersion.orNull?.takeIf { it.isNotEmpty() })
+            ?.let { put("ServerVersion", toSemverRange(it)) }
         sub.description?.takeIf { it.isNotEmpty() }?.let { put("Description", it) }
         sub.authors.takeIf { it.isNotEmpty() }?.let { list ->
             put("Authors", list.map { a ->
