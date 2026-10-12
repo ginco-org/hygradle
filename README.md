@@ -44,6 +44,45 @@ hytale {
 }
 ```
 
+### Shared framework packaging (`bundleExclude` / `bundleOnly`)
+
+On multi-plugin servers a shared framework plugin usually lives in `mods/` once, and consumer
+plugins resolve its classes through the `PluginBridgeClassLoader` (hard manifest dependencies
+are searched first). Bundling the framework jar into every consumer would shadow the shared
+framework — `PluginClassLoader` is child-first, so bundled classes win and you get split static
+state and duplicate registrations.
+
+With `bundleDependencies = true` you can keep specific Maven dependencies out of the jar:
+
+```kotlin
+hytale {
+    bundleDependencies = true
+    bundleExclude("gg.ginco:hytale-minigame-framework")  // the shared framework stays in mods/ once
+    bundleExclude("gg.ginco:hytale-codec-.*")            // patterns are full-match regexes
+}
+```
+
+Or flip it around with a positive list — bundle *only* what matches:
+
+```kotlin
+hytale {
+    bundleDependencies = true
+    bundleOnly("org.jetbrains.kotlin:kotlin-stdlib")
+}
+```
+
+Patterns are full-match regular expressions, matched against each runtime dependency's
+coordinates: `group:artifact`, `group:artifact:version`, the bare `artifact` name, the project
+path for project dependencies (`:lib`), or the file name for plain file dependencies. If both
+are used, `bundleExclude` wins over `bundleOnly`. A consumer typically also declares the
+framework as a hard manifest dependency so the bridge class loader resolves its classes:
+
+```kotlin
+hytale {
+    depends("Ginco:MinigameFramework", ">=1.0.0")
+}
+```
+
 ### Tasks
 
 | Task | Description |
@@ -140,6 +179,8 @@ server {
 | `description` | `String` | `""` | Plugin description |
 | `website` | `String` | `""` | Plugin website URL |
 | `bundleDependencies` | `Boolean` | `false` | Bundle runtime deps into the jar |
+| `bundleExclude()` | `vararg String` | — | Deps to **skip** when bundling: `group:artifact` or full-match regex (e.g. `"gg.ginco:hytale-codec-.*"`). Wins over `bundleOnly()` |
+| `bundleOnly()` | `vararg String` | — | Positive list: when non-empty, bundle **only** matching deps |
 | `includesAssetPack` | `Boolean` | `false` | Plugin includes an asset pack |
 | `disabledByDefault` | `Boolean` | `false` | Plugin is disabled by default |
 | `artifact` | `String` | `com.hypixel.hytale:Server` | Maven coordinates for the server jar |

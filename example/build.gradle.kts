@@ -16,6 +16,8 @@ hytale {
     serverVersion = "0.6.2"
 
     bundleDependencies = true
+    // Shared-framework servers: keep a dependency (group:artifact or regex) out of the jar
+    // bundleExclude("gg.ginco:hytale-minigame-framework")
 
     mainClass = "com.example.myplugin.Plugin"
 

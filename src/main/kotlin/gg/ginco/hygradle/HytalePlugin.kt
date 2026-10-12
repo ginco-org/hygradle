@@ -1,5 +1,6 @@
 package gg.ginco.hygradle
 
+import gg.ginco.hygradle.internal.DependencyBundleFilter
 import gg.ginco.hygradle.tasks.GenerateManifestTask
 import gg.ginco.hygradle.tasks.ProvisionServerTask
 import gg.ginco.hygradle.tasks.RunServerTask
@@ -85,7 +86,13 @@ class HytalePlugin : Plugin<Project> {
             from(generateManifest.flatMap { it.outputDir })
             if (ext.bundleDependencies.get()) {
                 from(project.configurations.named("runtimeClasspath").map { cfg ->
-                    cfg.filter { it.name.endsWith(".jar") }.map { project.zipTree(it) }
+                    // Bundle every runtime jar except the ones the user excluded/limited via
+                    // hytale { bundleExclude(...)/bundleOnly(...) } — resolved by group:artifact
+                    // coordinates so a shared-framework thin jar can be left out (issue #4).
+                    // Read lazily (inside the provider) so the final configured values are used.
+                    DependencyBundleFilter(ext.bundleIncludes.get(), ext.bundleExcludes.get())
+                        .select(cfg.incoming.artifacts)
+                        .map { project.zipTree(it) }
                 })
             }
         }

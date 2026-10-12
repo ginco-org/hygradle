@@ -11,6 +11,7 @@ dependencies {
     compileOnly(kotlin("gradle-plugin"))
     implementation("com.google.code.gson:gson:2.13.1")
     testImplementation(kotlin("test"))
+    testImplementation(gradleTestKit())
 }
 
 kotlin {

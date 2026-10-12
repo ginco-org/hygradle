@@ -1,5 +1,6 @@
 package gg.ginco.hygradle
 
+import gg.ginco.hygradle.internal.DependencyBundleFilter
 import org.gradle.api.Project
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
@@ -69,6 +70,20 @@ abstract class HytaleExtension @Inject constructor(project: Project) {
     /** When `true`, bundles all `runtimeClasspath` dependencies into the plugin jar. */
     abstract val bundleDependencies: Property<Boolean>
 
+    /**
+     * `group:artifact` patterns (full-match regex) of `runtimeClasspath` dependencies to
+     * **skip** when [bundleDependencies] is `true` — add via [bundleExclude].
+     * Wins over [bundleIncludes]. Empty (default) excludes nothing.
+     */
+    abstract val bundleExcludes: ListProperty<String>
+
+    /**
+     * Positive list: when non-empty, only `runtimeClasspath` dependencies matching these
+     * `group:artifact` patterns (full-match regex) are bundled when [bundleDependencies]
+     * is `true` — add via [bundleOnly]. Empty (default) means bundle everything.
+     */
+    abstract val bundleIncludes: ListProperty<String>
+
     /** Authors list — add entries via [author]. */
     abstract val authors: ListProperty<AuthorInfo>
 
@@ -105,6 +120,34 @@ abstract class HytaleExtension @Inject constructor(project: Project) {
         subPlugins.add(SubPluginSpec().apply(configure))
     }
 
+    /**
+     * Excludes dependencies from bundling. Accepts `group:artifact` coordinates or regexes
+     * (full match), e.g.:
+     *
+     * ```kotlin
+     * hytale {
+     *     bundleDependencies = true
+     *     bundleExclude("gg.ginco:hytale-minigame-framework") // shared framework plugin in mods/
+     *     bundleExclude("gg.ginco:hytale-codec-.*")         // regex
+     * }
+     * ```
+     *
+     * Only meaningful when [bundleDependencies] is `true`.
+     */
+    fun bundleExclude(vararg patterns: String) {
+        bundleExcludes.addAll(patterns.map { DependencyBundleFilter.validate(it) })
+    }
+
+    /**
+     * Positive list: when given, **only** matching dependencies are bundled.
+     * e.g. `bundleOnly("org.jetbrains.kotlin:kotlin-stdlib.*")`.
+     *
+     * Only meaningful when [bundleDependencies] is `true`. [bundleExclude] patterns still win.
+     */
+    fun bundleOnly(vararg patterns: String) {
+        bundleIncludes.addAll(patterns.map { DependencyBundleFilter.validate(it) })
+    }
+
     fun depends(pluginId: String, range: String = "*") {
         require(":" in pluginId) { "Plugin ID must be in 'Group:Name' format, got: '$pluginId'" }
         dependencies.put(pluginId, range)
@@ -125,6 +168,8 @@ abstract class HytaleExtension @Inject constructor(project: Project) {
         includesAssetPack.convention(false)
         disabledByDefault.convention(false)
         bundleDependencies.convention(false)
+        bundleExcludes.convention(emptyList())
+        bundleIncludes.convention(emptyList())
         authors.convention(emptyList())
         dependencies.convention(emptyMap())
         optionalDependencies.convention(emptyMap())
