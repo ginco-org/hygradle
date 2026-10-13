@@ -75,6 +75,13 @@ object HytaleAuth {
             addProperty("expires_at", cache.expiresAtEpochMs)
         }
         path.writeText(GsonBuilder().setPrettyPrinting().create().toJson(json))
+        // Long-lived credentials — restrict to the current user where the OS supports POSIX
+        // permissions (no-op on Windows, which protects the user profile with ACLs).
+        try {
+            Files.setPosixFilePermissions(
+                path, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"))
+        } catch (_: UnsupportedOperationException) {
+        }
     }
 
     private fun refreshToken(client: OAuthClient, refreshToken: String): TokenCache {
@@ -115,15 +122,18 @@ object HytaleAuth {
         val deviceCode = json.get("device_code").asString
         val userCode = json.get("user_code").asString
         val verificationUri = json.get("verification_uri").asString
-        val interval = json.get("interval")?.asLong ?: 5L
+        val expiresInSeconds = json.get("expires_in")?.asLong ?: 900L
+        // The device code expires — stop polling after its lifetime instead of forever.
+        val deadline = System.currentTimeMillis() + (expiresInSeconds - 5).coerceAtLeast(0) * 1000
+        var pollInterval = (json.get("interval")?.asLong ?: 5L).coerceAtLeast(1L)
 
         logger.lifecycle("")
         logger.lifecycle("To authenticate the ${client.clientId} client, visit: $verificationUri")
         logger.lifecycle("Enter code: $userCode")
         logger.lifecycle("")
 
-        while (true) {
-            Thread.sleep(interval * 1000)
+        while (System.currentTimeMillis() < deadline) {
+            Thread.sleep(pollInterval * 1000)
 
             val pollBody = "grant_type=urn:ietf:params:oauth:grant-type:device_code" +
                     "&device_code=$deviceCode&client_id=${client.clientId}"
@@ -148,11 +158,16 @@ object HytaleAuth {
             }
 
             val error = pollJson.get("error")?.asString
-            if (error != "authorization_pending" && error != "slow_down") {
+            if (error == "slow_down") {
+                // RFC 8628: increase the polling interval by 5 seconds
+                pollInterval += 5
+            } else if (error != "authorization_pending") {
                 throw IllegalStateException(
                     "Device auth failed: ${pollJson.get("error_description")?.asString ?: error}")
             }
         }
+        throw IllegalStateException(
+            "Device authentication timed out after ${expiresInSeconds}s — run the task again and complete the login promptly")
     }
 
     fun getAccessToken(logger: Logger, client: OAuthClient = DOWNLOADER): String {

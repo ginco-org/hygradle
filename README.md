@@ -13,14 +13,14 @@ pluginManagement {
 }
 
 plugins {
-    id("gg.ginco.hygradle.settings") version "0.3.1"
+    id("gg.ginco.hygradle.settings") version "0.6.0"
 }
 ```
 
 **`build.gradle.kts`**
 ```kotlin
 plugins {
-    id("gg.ginco.hygradle") version "0.3.1"
+    id("gg.ginco.hygradle") version "0.6.0"
     kotlin("jvm") version "2.3.21"  // optional
 }
 ```
@@ -108,17 +108,25 @@ tasks.named("myTestTask") {
 
 `runServer` depends on `provisionServer` automatically, so the server files are always in place before launch.
 
+When the authenticated full build is unavailable, hygradle falls back to a JAR-only download from Maven (no `Assets.zip`/`HytaleServer.aot.config`) and remembers the fallback so it doesn't retry the failing full build on every run. Delete `~/.gradle/caches/hygradle/server/<version>/` to retry the full build.
+
+Downloads always go to a temp file first and are moved into place afterwards, so an interrupted download can never leave a truncated server file behind.
+
 ### Run server
 
 ```bash
 ./gradlew runServer
 ```
 
-On first run, the server files (`HytaleServer.jar`, `HytaleServer.aot.config`, `Assets.zip`) are downloaded to `~/.gradle/caches/hygradle/server/<version>/`. The `run/` directory is used only as the server's working directory (mods, logs, config). Subsequent runs skip the download if the files are already cached for the requested version.
+On first run, the server files (`HytaleServer.jar`, `HytaleServer.aot.config`, `Assets.zip`) are downloaded to `~/.gradle/caches/hygradle/server/<version>/`. The `run/` directory is used only as the server's working directory (mods, logs, config) — `mods/` is rebuilt from scratch on every launch, so stale jars from previous builds are removed. Subsequent runs skip the download if the files are already cached for the requested version.
 
 If your server version requires authentication, the task will guide you through a one-time device code login. Credentials are cached locally.
 
 By default, the server also starts fully authenticated: hygradle exchanges a one-time `auth:server` login (client `hytale-server`, cached separately from the download token) for a **game session** and passes `--session-token` / `--identity-token` to the server process — no interactive `/auth` in the server console. Set `server { sessionAuth = false }` to disable this and authenticate manually instead.
+
+> Tokens are passed on the server process command line, so they are visible in the
+> process list (`ps`) to other local users of the machine. Set
+> `server { sessionAuth = false }` if that matters in your environment.
 
 Server options:
 
@@ -252,7 +260,7 @@ pluginManagement {
 }
 
 plugins {
-    id("gg.ginco.hygradle.settings") version "0.3.1"
+    id("gg.ginco.hygradle.settings") version "0.6.0"
 }
 
 rootProject.name = "my-workspace"
@@ -262,7 +270,7 @@ include(":mod-alpha", ":mod-beta")
 **`build.gradle.kts`** (root)
 ```kotlin
 plugins {
-    id("gg.ginco.hygradle.workspace") version "0.3.1"
+    id("gg.ginco.hygradle.workspace") version "0.6.0"
 }
 
 hytaleWorkspace {
@@ -295,6 +303,8 @@ hytale {
 
 Builds every mod subproject and starts a shared dev server with all mods loaded from a single `mods/` directory.
 
+`runAllMods` supports the same debug and HotSwap options as `runServer`, configured on the root project via `hytaleWorkspace { }`.
+
 ### Selective mod inclusion
 
 By default all subprojects with `gg.ginco.hygradle` applied are included. To restrict to specific subprojects:
@@ -315,6 +325,9 @@ hytaleWorkspace {
 | `hostProject` | `String` | — | Subproject excluded from `runAllMods` jar deployment |
 | `serverDir` | `Directory` | `./run` | Shared server run directory |
 | `jvmArgs` | `List<String>` | `["-Xmx4G", "-Xms1G"]` | JVM args for the dev server |
+| `sessionAuth` | `Boolean` | `true` | Create a game session and pass `--session-token`/`--identity-token` on launch |
+| `debugEnabled` / `debugPort` / `debugSuspend` | `Boolean` / `Int` / `Boolean` | `false` / `5005` / `false` | Debugger attachment — same semantics as `server { }` |
+| `requireDcevm` / `useHotswapAgent` / `hotswapAgentPath` / `jbrHome` | `Boolean` / `Boolean` / `RegularFile` / `String` | `false` / `false` / — / — | HotSwap support — same semantics as `server { }` |
 
 ## License
 

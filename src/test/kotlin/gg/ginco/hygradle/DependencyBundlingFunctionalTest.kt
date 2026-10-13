@@ -115,6 +115,14 @@ class DependencyBundlingFunctionalTest {
                 id("gg.ginco.hygradle")
             }
 
+            version = "1.0.0"
+
+            java {
+                // Hermetic: pin the consumer toolchain to the JVM running this test build —
+                // the sandbox may have no auto-provisionable JDK 25 for the plugin's default.
+                toolchain { languageVersion.set(JavaLanguageVersion.of(Runtime.version().feature())) }
+            }
+
             repositories {
                 // Test isolation: drop the remote repos the plugin adds; the fixture repo is enough.
                 removeAll { true }

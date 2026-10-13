@@ -122,6 +122,22 @@ class ServerDownloaderTest {
         assertEquals("v1-jar", File(v1Cache, "HytaleServer.jar").readText())
         assertEquals("v2-jar", File(v2Cache, "HytaleServer.jar").readText())
     }
+
+    @Test
+    fun `jar-only fallback cache is accepted as provisioned — no re-provision loop`() {
+        val versionCache = File(cacheDir, "1.0.0")
+        versionCache.mkdirs()
+        File(versionCache, "HytaleServer.jar").writeText("fake-jar")
+        File(versionCache, ".hygradle-jaronly").writeText("fallback marker")
+        File(versionCache, ".hygradle-version").writeText("1.0.0")
+
+        val result = ServerDownloader.ensureServerFiles("1.0.0", targetDir, cacheDir, logger)
+
+        assertEquals(versionCache.absolutePath, result.absolutePath)
+        assertTrue(File(targetDir, ".hygradle-version").isFile)
+        assertEquals("1.0.0", File(targetDir, ".hygradle-version").readText().trim())
+        assertEquals("fake-jar", File(versionCache, "HytaleServer.jar").readText())
+    }
 }
 
 /** Logger that discards everything — keeps tests silent. */

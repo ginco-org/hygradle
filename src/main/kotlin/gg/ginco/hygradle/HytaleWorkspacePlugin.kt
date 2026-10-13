@@ -34,6 +34,13 @@ class HytaleWorkspacePlugin : Plugin<Project> {
             serverDir.set(ext.serverDir)
             jvmArgs.set(ext.jvmArgs)
             sessionAuth.set(ext.sessionAuth)
+            debugEnabled.set(ext.debugEnabled)
+            debugPort.set(ext.debugPort)
+            debugSuspend.set(ext.debugSuspend)
+            requireDcevm.set(ext.requireDcevm)
+            useHotswapAgent.set(ext.useHotswapAgent)
+            hotswapAgentPath.set(ext.hotswapAgentPath)
+            jbrHome.set(ext.jbrHome)
             gradleUserHomeDir.set(project.layout.dir(project.provider { project.gradle.gradleUserHomeDir }))
             dependsOn(provisionServer)
         }

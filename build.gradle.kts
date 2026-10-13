@@ -5,11 +5,17 @@ plugins {
 
 repositories {
     mavenCentral()
+    gradlePluginPortal()
 }
 
 dependencies {
     compileOnly(kotlin("gradle-plugin"))
     implementation("com.google.code.gson:gson:2.13.1")
+    // Bundled so gg.ginco.hygradle.settings can register toolchain auto-provisioning on
+    // Gradle 9.x too (the built-in foojay-resolver-convention was removed in Gradle 9.0).
+    // 1.0.0 is the first version that supports Gradle 9; it requires Java 17+, which
+    // hygradle consumers need anyway for the Java 25 toolchain.
+    implementation("org.gradle.toolchains:foojay-resolver:1.0.0")
     testImplementation(kotlin("test"))
     testImplementation(gradleTestKit())
 }

@@ -43,6 +43,8 @@ class SubPluginManifestFunctionalTest {
                 id("gg.ginco.hygradle")
             }
 
+            version = "1.0.0"
+
             repositories { removeAll { true } }  // Test isolation: no network
 
             hytale {

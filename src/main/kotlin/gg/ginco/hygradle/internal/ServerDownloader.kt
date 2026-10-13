@@ -39,16 +39,13 @@ object ServerDownloader {
     fun ensureServerFiles(version: String, targetDir: File, cacheDir: File, logger: Logger): File {
         val marker = File(targetDir, ".hygradle-version")
         val versionCacheDir = File(cacheDir, version)
-        if (marker.isFile && marker.readText().trim() == version
-            && SERVER_FILES.all { File(versionCacheDir, it).isFile }) {
+        if (marker.isFile && marker.readText().trim() == version && isProvisioned(versionCacheDir, version)) {
             logger.lifecycle("Server files for $version already present, skipping download")
             return versionCacheDir
         }
 
         // Download into cache if not already there
-        if (!File(versionCacheDir, ".hygradle-version").isFile
-            || File(versionCacheDir, ".hygradle-version").readText().trim() != version
-            || !SERVER_FILES.all { File(versionCacheDir, it).isFile }) {
+        if (!isProvisioned(versionCacheDir, version)) {
 
             versionCacheDir.mkdirs()
 
@@ -75,6 +72,20 @@ object ServerDownloader {
      */
     fun versionCacheDir(cacheDir: File, version: String): File = File(cacheDir, version)
 
+    /**
+     * A version cache counts as provisioned when the full server file set is present, or
+     * when a previous run fell back to the JAR-only Maven download (`.hygradle-jaronly`
+     * marker) — re-attempting the failing full build on every run would just repeat it.
+     * Delete the version cache dir to retry the full build.
+     */
+    private fun isProvisioned(versionCacheDir: File, version: String): Boolean {
+        val cacheMarker = File(versionCacheDir, ".hygradle-version")
+        if (!cacheMarker.isFile || cacheMarker.readText().trim() != version) return false
+        if (SERVER_FILES.all { File(versionCacheDir, it).isFile }) return true
+        return File(versionCacheDir, "HytaleServer.jar").isFile &&
+            File(versionCacheDir, ".hygradle-jaronly").isFile
+    }
+
     // ---- Full build (authenticated R2) -----------------------------------------
 
     private fun fullBuild(version: String, targetDir: File, logger: Logger) {
@@ -87,6 +98,12 @@ object ServerDownloader {
                 val zipFile = downloadTo(r2Url, File(targetDir, ".build.zip"), logger)
                 extractEntries(zipFile, targetDir)
                 zipFile.delete()
+                // Fail the channel when the zip layout changed and entries went missing —
+                // otherwise a channel-1 mismatch would mark an empty cache as complete.
+                val missing = SERVER_FILES.filter { !File(targetDir, it).isFile }
+                if (missing.isNotEmpty()) {
+                    throw IllegalStateException("build zip did not contain ${missing.joinToString()}")
+                }
                 logger.lifecycle("Extracted server files to ${targetDir.absolutePath}")
                 return
             } catch (e: Exception) {
@@ -118,9 +135,12 @@ object ServerDownloader {
         for (channel in CHANNELS) {
             val url = "$MAVEN_BASE/$channel/com/hypixel/hytale/Server/$version/Server-$version.jar"
             try {
-                val dest = File(targetDir, "HytaleServer.jar")
-                downloadTo(url, dest, logger)
+                downloadTo(url, File(targetDir, "HytaleServer.jar"), logger)
                 logger.lifecycle("Downloaded server JAR from Maven ($channel)")
+                // Marks the cache as JAR-only (assets unavailable) so later runs skip the
+                // failing full-build attempt instead of repeating it on every provision.
+                File(targetDir, ".hygradle-jaronly").writeText(
+                    "Assets.zip/HytaleServer.aot.config unavailable — authenticated full build failed")
                 return
             } catch (_: Exception) { /* try next channel */ }
         }
@@ -147,28 +167,48 @@ object ServerDownloader {
 
         val contentLength = response.headers().firstValueAsLong("content-length").orElse(-1)
 
-        dest.outputStream().buffered().use { out ->
-            response.body().use { input ->
-                val buf = ByteArray(64 * 1024)
-                var total = 0L
-                var lastLog = 0L
+        // Download to a temp file and move into place — an interrupted download must not
+        // leave a truncated file behind that later passes the present-file cache check.
+        val tmp = File(dest.parentFile, dest.name + ".tmp")
+        try {
+            tmp.outputStream().buffered().use { out ->
+                response.body().use { input ->
+                    val buf = ByteArray(64 * 1024)
+                    var total = 0L
+                    var lastLog = 0L
 
-                var read = input.read(buf)
-                while (read != -1) {
-                    out.write(buf, 0, read)
-                    total += read
-                    if (total - lastLog >= 10 * 1024 * 1024) {
-                        val msg = if (contentLength > 0) {
-                            "  ${total / (1024 * 1024)} / ${contentLength / (1024 * 1024)} MB"
-                        } else {
-                            "  ${total / (1024 * 1024)} MB"
+                    var read = input.read(buf)
+                    while (read != -1) {
+                        out.write(buf, 0, read)
+                        total += read
+                        if (total - lastLog >= 10 * 1024 * 1024) {
+                            val msg = if (contentLength > 0) {
+                                "  ${total / (1024 * 1024)} / ${contentLength / (1024 * 1024)} MB"
+                            } else {
+                                "  ${total / (1024 * 1024)} MB"
+                            }
+                            logger.lifecycle(msg)
+                            lastLog = total
                         }
-                        logger.lifecycle(msg)
-                        lastLog = total
+                        read = input.read(buf)
                     }
-                    read = input.read(buf)
                 }
             }
+            try {
+                java.nio.file.Files.move(
+                    tmp.toPath(), dest.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE
+                )
+            } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+                java.nio.file.Files.move(
+                    tmp.toPath(), dest.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                )
+            }
+        } catch (e: Exception) {
+            tmp.delete()
+            throw e
         }
 
         return dest

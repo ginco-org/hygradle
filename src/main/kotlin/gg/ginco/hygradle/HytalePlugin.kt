@@ -6,6 +6,7 @@ import gg.ginco.hygradle.tasks.ProvisionServerTask
 import gg.ginco.hygradle.tasks.RunServerTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.provider.Property
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.tasks.bundling.Jar
@@ -16,25 +17,50 @@ class HytalePlugin : Plugin<Project> {
     override fun apply(project: Project) {
         project.pluginManager.apply(JavaLibraryPlugin::class)
 
-        // Hytale publishes to channel-prefixed paths; add both so pre-release versions resolve too
-        project.repositories.maven { url = project.uri("https://maven.hytale.com/release") }
-        project.repositories.maven { url = project.uri("https://maven.hytale.com/pre-release") }
         project.repositories.mavenCentral()
 
-        project.extensions.configure<JavaPluginExtension> {
-            toolchain { languageVersion.set(JavaLanguageVersion.of(25)) }
+        val ext = project.extensions.create<HytaleExtension>("hytale", project)
+
+        project.afterEvaluate {
+            // Hytale publishes to channel-prefixed paths; both channels are added when a
+            // server version is configured (the hytaleApi dependency needs them) — projects
+            // that only generate the manifest don't get extra repositories.
+            if (!ext.serverVersion.isPresent) return@afterEvaluate
+            project.repositories.maven { url = project.uri("https://maven.hytale.com/release") }
+            project.repositories.maven { url = project.uri("https://maven.hytale.com/pre-release") }
         }
 
-        // When Kotlin plugin is present, align its toolchain too so compileKotlin targets 25
-        project.pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
-            val kotlinExt = project.extensions.findByName("kotlin")
-            if (kotlinExt != null) {
-                kotlinExt.javaClass.getMethod("jvmToolchain", Int::class.javaPrimitiveType)
-                    .invoke(kotlinExt, 25)
+        project.afterEvaluate {
+            // Default toolchain 25 (the server runs a very new JDK), but never override a
+            // toolchain the build configures itself — a hard requirement on JDK 25 fails
+            // builds on machines that can't detect or provision it.
+            val javaExt = project.extensions.getByType(JavaPluginExtension::class)
+            if (javaExt.toolchain.languageVersion.isPresent) return@afterEvaluate
+            javaExt.toolchain.languageVersion.set(JavaLanguageVersion.of(25))
+
+            // When the Kotlin plugin is present, align its toolchain too so compileKotlin
+            // targets 25. Reflective: no build-time coupling to the Kotlin plugin version.
+            try {
+                val kotlinExt = project.extensions.findByName("kotlin")
+                if (kotlinExt == null) return@afterEvaluate
+                val kotlinHasOwnToolchain = runCatching {
+                    val spec = kotlinExt.javaClass.methods
+                        .firstOrNull { (it.name == "jvmToolchain" || it.name == "getJvmToolchain") && it.parameterCount == 0 }
+                        ?.invoke(kotlinExt)
+                    val languageVersion = spec?.javaClass?.methods
+                        ?.firstOrNull { it.name == "getLanguageVersion" }?.invoke(spec)
+                    (languageVersion as? Property<*>)?.isPresent == true
+                }.getOrDefault(false)
+                if (!kotlinHasOwnToolchain) {
+                    kotlinExt.javaClass.getMethod("jvmToolchain", Int::class.javaPrimitiveType)
+                        .invoke(kotlinExt, 25)
+                }
+            } catch (t: Throwable) {
+                project.logger.lifecycle(
+                    "hygradle: could not align Kotlin toolchain to 25 ({}); set kotlin {{ jvmToolchain(25) }} explicitly",
+                    t.message)
             }
         }
-
-        val ext = project.extensions.create<HytaleExtension>("hytale", project)
 
         // When the hytest plugin is also applied, forward the same extraMods
         // into its test-server deployment (reflective: no build-time coupling,
@@ -47,9 +73,10 @@ class HytalePlugin : Plugin<Project> {
                     ?: return@afterEvaluate
                 @Suppress("UNCHECKED_CAST")
                 val into = prop.invoke(hytestExt) as org.gradle.api.provider.ListProperty<java.nio.file.Path>
-                into.addAll(ext.server.extraMods.files.map { it.toPath() })
-                ext.server.extraMods.files.map { it.toPath() }.forEach { p ->
-                    project.logger.lifecycle("hygradle: forwarding extra mod {} into hytest extraMods", p)
+                val paths = ext.server.extraMods.files.map { it.toPath() }
+                into.addAll(paths)
+                paths.forEach { p ->
+                    project.logger.debug("hygradle: forwarding extra mod {} into hytest extraMods", p)
                 }
             } catch (t: Throwable) {
                 project.logger.lifecycle(
@@ -61,6 +88,9 @@ class HytalePlugin : Plugin<Project> {
         project.afterEvaluate {
             check(ext.group.isPresent) { "hytale { group } is required" }
             check(ext.mainClass.isPresent) { "hytale { mainClass } is required" }
+            check(project.version.toString() != "unspecified") {
+                "hytale plugins must set project.version — the manifest's 'Version' field would otherwise be 'unspecified'"
+            }
         }
         setupConfigurations(project, ext)
         setupTasks(project, ext)
