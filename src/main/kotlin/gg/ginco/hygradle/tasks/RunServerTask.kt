@@ -7,6 +7,7 @@ import gg.ginco.hygradle.internal.ServerDownloader
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
@@ -23,6 +24,11 @@ abstract class RunServerTask @Inject constructor(
     @get:PathSensitive(PathSensitivity.ABSOLUTE)
     @get:InputFile
     abstract val pluginJar: RegularFileProperty
+
+    /** Dependency plugin jars copied into mods/ beside [pluginJar]. */
+    @get:PathSensitive(PathSensitivity.ABSOLUTE)
+    @get:InputFiles
+    abstract val extraMods: ConfigurableFileCollection
 
     @get:Input
     abstract val serverVersion: Property<String>
@@ -55,6 +61,10 @@ abstract class RunServerTask @Inject constructor(
         val jar = pluginJar.get().asFile
         jar.copyTo(File(modsDir, jar.name), overwrite = true)
         logger.lifecycle("Deployed ${jar.name} to ${modsDir.absolutePath}")
+        for (extra in extraMods.files) {
+            extra.copyTo(File(modsDir, extra.name), overwrite = true)
+            logger.lifecycle("Deployed ${extra.name} to ${modsDir.absolutePath}")
+        }
 
         val serverJar = File(versionCache, "HytaleServer.jar")
         val assets = File(versionCache, "Assets.zip")

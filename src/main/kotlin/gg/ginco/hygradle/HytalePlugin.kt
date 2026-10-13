@@ -36,6 +36,28 @@ class HytalePlugin : Plugin<Project> {
 
         val ext = project.extensions.create<HytaleExtension>("hytale", project)
 
+        // When the hytest plugin is also applied, forward the same extraMods
+        // into its test-server deployment (reflective: no build-time coupling,
+        // graceful absence on either side).
+        project.afterEvaluate {
+            if (!project.plugins.hasPlugin("gg.ginco.hytest")) return@afterEvaluate
+            try {
+                val hytestExt = project.extensions.findByName("hytest") ?: return@afterEvaluate
+                val prop = hytestExt.javaClass.methods.firstOrNull { it.name == "getExtraMods" }
+                    ?: return@afterEvaluate
+                @Suppress("UNCHECKED_CAST")
+                val into = prop.invoke(hytestExt) as org.gradle.api.provider.ListProperty<java.nio.file.Path>
+                into.addAll(ext.server.extraMods.files.map { it.toPath() })
+                ext.server.extraMods.files.map { it.toPath() }.forEach { p ->
+                    project.logger.lifecycle("hygradle: forwarding extra mod {} into hytest extraMods", p)
+                }
+            } catch (t: Throwable) {
+                project.logger.lifecycle(
+                    "hygradle: could not auto-forward extraMods to hytest ({}); set hytest {{}} extraMods manually",
+                    t.message)
+            }
+        }
+
         project.afterEvaluate {
             check(ext.group.isPresent) { "hytale { group } is required" }
             check(ext.mainClass.isPresent) { "hytale { mainClass } is required" }
@@ -110,6 +132,7 @@ class HytalePlugin : Plugin<Project> {
             description = "Starts a Hytale dev server with this plugin loaded"
 
             pluginJar.set(project.tasks.named<Jar>("jar").flatMap { it.archiveFile })
+            extraMods.setFrom(ext.server.extraMods)
             serverVersion.set(ext.serverVersion)
             serverDir.set(ext.server.serverDir)
             jvmArgs.set(ext.server.jvmArgs)

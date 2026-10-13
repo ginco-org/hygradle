@@ -1,6 +1,7 @@
 package gg.ginco.hygradle
 
 import org.gradle.api.Project
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
@@ -21,6 +22,15 @@ abstract class ServerExtension @Inject constructor(project: Project) {
 
     // Session auth
     abstract val sessionAuth: Property<Boolean>
+
+    /**
+     * Dependency plugin jars copied into the server's mods/ next to this
+     * project's own plugin jar at boot: shared-runtime carriers
+     * (e.g. gg.ginco:KotlinForHytale) and installed framework/plugin jars.
+     * Read by [gg.ginco.hygradle.tasks.RunServerTask]; when the hytest
+     * plugin is also applied the same list flows into its test shoes.
+     */
+    abstract val extraMods: ConfigurableFileCollection
 
     // HotSwap
     abstract val requireDcevm: Property<Boolean>
