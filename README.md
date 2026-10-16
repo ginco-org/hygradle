@@ -13,14 +13,14 @@ pluginManagement {
 }
 
 plugins {
-    id("gg.ginco.hygradle.settings") version "0.7.0"
+    id("gg.ginco.hygradle.settings") version "0.7.1"
 }
 ```
 
 **`build.gradle.kts`**
 ```kotlin
 plugins {
-    id("gg.ginco.hygradle") version "0.7.0"
+    id("gg.ginco.hygradle") version "0.7.1"
     kotlin("jvm") version "2.3.21"  // optional
 }
 ```
@@ -260,7 +260,7 @@ pluginManagement {
 }
 
 plugins {
-    id("gg.ginco.hygradle.settings") version "0.7.0"
+    id("gg.ginco.hygradle.settings") version "0.7.1"
 }
 
 rootProject.name = "my-workspace"
@@ -270,7 +270,7 @@ include(":mod-alpha", ":mod-beta")
 **`build.gradle.kts`** (root)
 ```kotlin
 plugins {
-    id("gg.ginco.hygradle.workspace") version "0.7.0"
+    id("gg.ginco.hygradle.workspace") version "0.7.1"
 }
 
 hytaleWorkspace {
