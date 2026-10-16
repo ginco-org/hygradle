@@ -13,7 +13,7 @@ hytale {
     website = "example.com"
     author("jane doe", email = "jane.doe@example.com")
 
-    serverVersion = "0.6.2"
+    serverVersion = "0.7.2"
 
     bundleDependencies = true
     // Shared-framework servers: keep a dependency (group:artifact or regex) out of the jar

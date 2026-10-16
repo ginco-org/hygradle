@@ -17,7 +17,7 @@ class SubPluginSpec : java.io.Serializable {
     var website: String? = null
 
     /**
-     * Target Hytale server version for this entry, e.g. `"0.6.8"` — stamped as `ServerVersion`
+     * Target Hytale server version for this entry, e.g. `"0.7.2"` — stamped as `ServerVersion`
      * on the SubPlugins manifest entry (normalized through the same semver-range rules as
      * the parent's `hytale { serverVersion }`).
      *
