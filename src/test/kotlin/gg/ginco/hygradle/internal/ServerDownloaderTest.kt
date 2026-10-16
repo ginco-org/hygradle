@@ -8,6 +8,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ServerDownloaderTest {
@@ -124,19 +125,44 @@ class ServerDownloaderTest {
     }
 
     @Test
-    fun `jar-only fallback cache is accepted as provisioned — no re-provision loop`() {
+    fun `provisioned only when every server file is present`() {
+        val versionCache = File(cacheDir, "1.0.0")
+        versionCache.mkdirs()
+        File(versionCache, ".hygradle-version").writeText("1.0.0")
+
+        assertFalse(ServerDownloader.isProvisioned(versionCache, "1.0.0"), "empty cache")
+
+        File(versionCache, "HytaleServer.jar").writeText("fake-jar")
+        assertFalse(ServerDownloader.isProvisioned(versionCache, "1.0.0"), "jar only")
+
+        File(versionCache, "HytaleServer.aot.config").writeText("fake-aot")
+        assertFalse(ServerDownloader.isProvisioned(versionCache, "1.0.0"), "assets still missing")
+
+        File(versionCache, "Assets.zip").writeText("fake-assets")
+        assertTrue(ServerDownloader.isProvisioned(versionCache, "1.0.0"), "complete file set")
+    }
+
+    @Test
+    fun `jar-only fallback cache is NOT provisioned — the next run retries the full build`() {
         val versionCache = File(cacheDir, "1.0.0")
         versionCache.mkdirs()
         File(versionCache, "HytaleServer.jar").writeText("fake-jar")
         File(versionCache, ".hygradle-jaronly").writeText("fallback marker")
         File(versionCache, ".hygradle-version").writeText("1.0.0")
 
-        val result = ServerDownloader.ensureServerFiles("1.0.0", targetDir, cacheDir, logger)
+        assertFalse(ServerDownloader.isProvisioned(versionCache, "1.0.0"))
+    }
 
-        assertEquals(versionCache.absolutePath, result.absolutePath)
-        assertTrue(File(targetDir, ".hygradle-version").isFile)
-        assertEquals("1.0.0", File(targetDir, ".hygradle-version").readText().trim())
-        assertEquals("fake-jar", File(versionCache, "HytaleServer.jar").readText())
+    @Test
+    fun `cache claimed for another version is not provisioned`() {
+        val versionCache = File(cacheDir, "1.0.0")
+        versionCache.mkdirs()
+        File(versionCache, "HytaleServer.jar").writeText("fake-jar")
+        File(versionCache, "HytaleServer.aot.config").writeText("fake-aot")
+        File(versionCache, "Assets.zip").writeText("fake-assets")
+        File(versionCache, ".hygradle-version").writeText("0.9.0")
+
+        assertFalse(ServerDownloader.isProvisioned(versionCache, "1.0.0"))
     }
 }
 

@@ -48,16 +48,24 @@ object ServerDownloader {
         if (!isProvisioned(versionCacheDir, version)) {
 
             versionCacheDir.mkdirs()
+            // Claim the directory for this version BEFORE downloading: completeness is
+            // decided by the file set alone (see [isProvisioned]), so a run killed between
+            // the last extracted file and this marker is still recognised as complete
+            // instead of paying for the whole download again.
+            File(versionCacheDir, ".hygradle-version").writeText(version)
 
             try {
                 fullBuild(version, versionCacheDir, logger)
+                // A previous run may have left the JAR-only breadcrumb behind.
+                File(versionCacheDir, ".hygradle-jaronly").delete()
             } catch (e: Exception) {
                 logger.lifecycle("Full build download failed: ${e.message}")
                 logger.lifecycle("Falling back to JAR-only download from Maven")
                 jarOnly(version, versionCacheDir, logger)
+                logger.lifecycle(
+                    "Server files for $version are INCOMPLETE (Assets.zip missing) — " +
+                        "the next provisioning run retries the full build")
             }
-
-            File(versionCacheDir, ".hygradle-version").writeText(version)
         }
 
         targetDir.mkdirs()
@@ -73,17 +81,16 @@ object ServerDownloader {
     fun versionCacheDir(cacheDir: File, version: String): File = File(cacheDir, version)
 
     /**
-     * A version cache counts as provisioned when the full server file set is present, or
-     * when a previous run fell back to the JAR-only Maven download (`.hygradle-jaronly`
-     * marker) — re-attempting the failing full build on every run would just repeat it.
-     * Delete the version cache dir to retry the full build.
+     * A version cache counts as provisioned only when the FULL server file set is present.
+     * A partial cache — a download cancelled mid-flight, or a JAR-only fallback — is
+     * deliberately NOT provisioned: the next run picks the download back up instead of
+     * handing the launcher a server that cannot boot (the server shuts down without
+     * Assets.zip). Delete the version cache dir to start over from scratch.
      */
-    private fun isProvisioned(versionCacheDir: File, version: String): Boolean {
+    internal fun isProvisioned(versionCacheDir: File, version: String): Boolean {
         val cacheMarker = File(versionCacheDir, ".hygradle-version")
         if (!cacheMarker.isFile || cacheMarker.readText().trim() != version) return false
-        if (SERVER_FILES.all { File(versionCacheDir, it).isFile }) return true
-        return File(versionCacheDir, "HytaleServer.jar").isFile &&
-            File(versionCacheDir, ".hygradle-jaronly").isFile
+        return SERVER_FILES.all { File(versionCacheDir, it).isFile }
     }
 
     // ---- Full build (authenticated R2) -----------------------------------------
@@ -132,19 +139,35 @@ object ServerDownloader {
     // ---- JAR-only (public Maven, no auth) --------------------------------------
 
     private fun jarOnly(version: String, targetDir: File, logger: Logger) {
+        val jar = File(targetDir, "HytaleServer.jar")
+        if (jar.isFile) {
+            // A previous run already fetched the jar — downloadTo moves it into place
+            // atomically, so a present jar is a complete one. Re-downloading 112MB on
+            // every retry of the still-failing full build would be pure waste.
+            logger.lifecycle("Server JAR already cached — keeping it")
+            markJarOnly(targetDir)
+            return
+        }
         for (channel in CHANNELS) {
             val url = "$MAVEN_BASE/$channel/com/hypixel/hytale/Server/$version/Server-$version.jar"
             try {
-                downloadTo(url, File(targetDir, "HytaleServer.jar"), logger)
+                downloadTo(url, jar, logger)
                 logger.lifecycle("Downloaded server JAR from Maven ($channel)")
-                // Marks the cache as JAR-only (assets unavailable) so later runs skip the
-                // failing full-build attempt instead of repeating it on every provision.
-                File(targetDir, ".hygradle-jaronly").writeText(
-                    "Assets.zip/HytaleServer.aot.config unavailable — authenticated full build failed")
+                markJarOnly(targetDir)
                 return
             } catch (_: Exception) { /* try next channel */ }
         }
         throw IllegalStateException("Server JAR unavailable on all Maven channels")
+    }
+
+    /**
+     * Breadcrumb for a cache that has the server JAR but no assets. It no longer gates
+     * provisioning (see [isProvisioned]) — it only explains why a run is incomplete.
+     * Removed once a full build succeeds.
+     */
+    private fun markJarOnly(targetDir: File) {
+        File(targetDir, ".hygradle-jaronly").writeText(
+            "Assets.zip/HytaleServer.aot.config unavailable — authenticated full build failed")
     }
 
     // ---- Shared helpers --------------------------------------------------------
